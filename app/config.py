@@ -1,4 +1,4 @@
-"""Application configuration loaded from environment variables."""
+"""Application configuration loaded from environment variables or Streamlit secrets."""
 
 import os
 from dataclasses import dataclass
@@ -12,6 +12,20 @@ except ModuleNotFoundError:
 
 if load_dotenv:
     load_dotenv()
+
+
+def _get_groq_api_key() -> str | None:
+    """Safely retrieve the Groq API key from Streamlit secrets or OS environment variables."""
+    # 1. Try reading from Streamlit Cloud Secrets
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+
+    # 2. Fallback to OS environment variables / .env
+    return os.getenv("GROQ_API_KEY")
 
 
 def _get_int(name: str, default: int) -> int:
@@ -45,7 +59,7 @@ def get_settings() -> Settings:
     """Return cached settings."""
 
     return Settings(
-        groq_api_key=os.getenv("GROQ_API_KEY"),
+        groq_api_key=_get_groq_api_key(),
         embedding_model_name=os.getenv(
             "EMBEDDING_MODEL_NAME",
             "sentence-transformers/all-MiniLM-L6-v2",
