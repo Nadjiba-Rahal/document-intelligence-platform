@@ -33,7 +33,7 @@ class Settings:
     chroma_persist_dir: str = "./data/chroma_db"
     chunk_size: int = 500
     chunk_overlap: int = 50
-    groq_model_name: str = "llama3-8b-8192"
+    groq_model_name: str = "llama-3.1-8b-instant"
 
     @property
     def chroma_path(self) -> Path:
@@ -53,5 +53,5 @@ def get_settings() -> Settings:
         chroma_persist_dir=os.getenv("CHROMA_PERSIST_DIR", "./data/chroma_db"),
         chunk_size=_get_int("CHUNK_SIZE", 500),
         chunk_overlap=_get_int("CHUNK_OVERLAP", 50),
-        groq_model_name=os.getenv("GROQ_MODEL_NAME", "llama3-8b-8192"),
+        groq_model_name=os.getenv("GROQ_MODEL_NAME", "llama-3.1-8b-instant"),
     )

@@ -11,7 +11,7 @@ class FakeRAGEngine:
     def ingest_pdf(self, file_path: str) -> int:
         return 2
 
-    def query(self, question: str) -> dict:
+    def query(self, question: str, language: str = "English", answer_style: str = "Executive") -> dict:
         if not question.strip():
             raise ValueError("Question cannot be empty.")
         return {
@@ -22,6 +22,7 @@ class FakeRAGEngine:
                     "metadata": {"source": "test.pdf", "page": 0},
                 }
             ],
+            "retrieval_metrics": {"source_count": 1, "unique_pages": 1},
         }
 
 
@@ -47,6 +48,21 @@ def test_query_endpoint_returns_answer_and_sources(client):
     payload = response.json()
     assert payload["answer"] == "This is a grounded test answer."
     assert payload["source_documents"][0]["metadata"]["source"] == "test.pdf"
+    assert payload["retrieval_metrics"]["source_count"] == 1
+
+
+def test_query_endpoint_accepts_french_language(client):
+    response = client.post(
+        "/query",
+        json={
+            "question": "Quel est le sujet du document?",
+            "language": "French",
+            "answer_style": "Study Notes",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "This is a grounded test answer."
 
 
 def test_query_endpoint_rejects_empty_question(client):

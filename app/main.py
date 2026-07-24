@@ -30,11 +30,14 @@ app.add_middleware(
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, examples=["What is this document about?"])
+    language: str = Field(default="English", examples=["English", "French", "Arabic"])
+    answer_style: str = Field(default="Executive", examples=["Executive", "Detailed", "Study Notes"])
 
 
 class QueryResponse(BaseModel):
     answer: str
     source_documents: list[dict]
+    retrieval_metrics: dict = {}
 
 
 @lru_cache
@@ -125,7 +128,11 @@ def query_documents(
         )
 
     try:
-        return engine.query(question)
+        return engine.query(
+            question,
+            language=payload.language,
+            answer_style=payload.answer_style,
+        )
     except MissingAPIKeyError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except ValueError as exc:

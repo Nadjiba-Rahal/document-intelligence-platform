@@ -1,10 +1,13 @@
 """Streamlit dashboard for the RAG system."""
 
+import hashlib
 import os
+import sys
 from pathlib import Path
-from uuid import uuid4
 
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings
 from app.rag_engine import DocumentRAGEngine, MissingAPIKeyError, RAGEngineError
@@ -23,9 +26,13 @@ def get_engine() -> DocumentRAGEngine:
     return DocumentRAGEngine()
 
 
+def uploaded_file_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
 st.set_page_config(page_title="Enterprise RAG Engine", page_icon="📄", layout="wide")
 st.title("Enterprise RAG Engine")
-st.caption("Upload PDFs, index them locally with Chroma, and ask grounded questions with Llama 3 via Groq.")
+st.caption("Multilingual, evaluation-ready PDF intelligence with grounded answers and inspectable evidence.")
 
 with st.sidebar:
     st.header("Configuration")
@@ -35,12 +42,33 @@ with st.sidebar:
         reset_engine_cache()
         st.success("API key loaded for this session.")
 
+    language = st.selectbox("Answer language", ["English", "French", "Arabic"])
+    answer_style = st.segmented_control(
+        "Answer style",
+        ["Executive", "Detailed", "Study Notes"],
+        default="Executive",
+    )
+    show_metrics = st.toggle("Show retrieval metrics", value=True)
+
     st.divider()
     st.header("Upload PDF")
     uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
+    if st.button("Clear indexed documents", use_container_width=True):
+        try:
+            with st.spinner("Clearing local vector database..."):
+                get_engine().clear_index()
+            st.session_state.messages = []
+            st.success("Index cleared. Upload and index one PDF again.")
+        except MissingAPIKeyError as exc:
+            st.error(str(exc))
+        except Exception as exc:
+            st.error(f"Could not clear index: {exc}")
+
     if uploaded_file and st.button("Index document", use_container_width=True):
-        destination = DATA_DIR / f"{uuid4().hex}_{uploaded_file.name}"
-        destination.write_bytes(uploaded_file.getbuffer())
+        content = uploaded_file.getbuffer().tobytes()
+        file_id = uploaded_file_hash(content)[:16]
+        destination = DATA_DIR / f"{file_id}_{Path(uploaded_file.name).name}"
+        destination.write_bytes(content)
         try:
             with st.spinner("Indexing document..."):
                 chunks = get_engine().ingest_pdf(str(destination))
@@ -58,11 +86,25 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        for index, source in enumerate(message.get("sources", []), start=1):
-            metadata = source.get("metadata", {})
-            label = f"Source {index}: {metadata.get('source', 'unknown')} page {metadata.get('page', 'unknown')}"
-            with st.expander(label):
-                st.write(source.get("content", ""))
+        sources = message.get("sources", [])
+        if sources:
+            with st.expander(f"Inspect evidence ({len(sources)} sources)"):
+                for index, source in enumerate(sources, start=1):
+                    metadata = source.get("metadata", {})
+                    st.markdown(
+                        f"**Source {index}:** {metadata.get('source', 'unknown')} "
+                        f"page {metadata.get('page', 'unknown')}"
+                    )
+                    st.write(source.get("content", ""))
+        metrics = message.get("metrics")
+        if metrics and show_metrics:
+            st.caption(
+                "Retrieval quality: "
+                f"{metrics.get('source_count', 0)} chunks, "
+                f"{metrics.get('unique_pages', 0)} unique pages, "
+                f"{metrics.get('reference_chunk_ratio', 0)} reference ratio, "
+                f"{metrics.get('toc_chunk_ratio', 0)} TOC ratio"
+            )
 
 question = st.chat_input("Ask a question about your indexed PDFs")
 if question:
@@ -73,24 +115,41 @@ if question:
     with st.chat_message("assistant"):
         try:
             with st.spinner("Searching sources and asking Llama 3..."):
-                result = get_engine().query(question)
+                result = get_engine().query(
+                    question,
+                    language=language,
+                    answer_style=answer_style,
+                )
             st.markdown(result["answer"])
-            for index, source in enumerate(result["source_documents"], start=1):
-                metadata = source.get("metadata", {})
-                label = f"Source {index}: {metadata.get('source', 'unknown')} page {metadata.get('page', 'unknown')}"
-                with st.expander(label):
+            sources = result["source_documents"]
+            with st.expander(f"Inspect evidence ({len(sources)} sources)"):
+                for index, source in enumerate(sources, start=1):
+                    metadata = source.get("metadata", {})
+                    st.markdown(
+                        f"**Source {index}:** {metadata.get('source', 'unknown')} "
+                        f"page {metadata.get('page', 'unknown')}"
+                    )
                     st.write(source.get("content", ""))
+            metrics = result.get("retrieval_metrics", {})
+            if show_metrics and metrics:
+                st.caption(
+                    "Retrieval quality: "
+                    f"{metrics.get('source_count', 0)} chunks, "
+                    f"{metrics.get('unique_pages', 0)} unique pages, "
+                    f"{metrics.get('reference_chunk_ratio', 0)} reference ratio, "
+                    f"{metrics.get('toc_chunk_ratio', 0)} TOC ratio"
+                )
             st.session_state.messages.append(
                 {
                     "role": "assistant",
                     "content": result["answer"],
-                    "sources": result["source_documents"],
+                    "sources": sources,
+                    "metrics": metrics,
                 }
             )
         except MissingAPIKeyError as exc:
             st.error(str(exc))
-        except ValueError as exc:
+        except (ValueError, RAGEngineError) as exc:
             st.error(str(exc))
-        except Exception:
-            st.error("Unexpected query error. Confirm a PDF has been indexed and try again.")
-
+        except Exception as exc:
+            st.error(f"Unexpected query error: {exc}")
