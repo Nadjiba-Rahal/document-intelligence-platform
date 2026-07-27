@@ -1,4 +1,3 @@
-Here is a clean, highly scannable, emoji-free version of your `README.md`. It uses clean Markdown headers, structured tables, and clear code blocks so recruiters can scan your technical skills instantly.
 
 ---
 
