@@ -1,8 +1,4 @@
-Here is a clean, highly scannable, emoji-free version of your `README.md`. It uses clean Markdown headers, structured tables, and clear code blocks so recruiters can scan your technical skills instantly.
 
----
-
-```markdown
 # Enterprise RAG Engine
 ### Production-Grade Multilingual Intelligence System for Documents
 A lightweight, production-ready Retrieval-Augmented Generation (RAG) system built to parse, index, and query complex PDF documents with zero-hallucination constraints and full multi-language support.
@@ -216,4 +212,3 @@ Distributed under the **MIT License**. See `LICENSE` for details.
 
 ```
 
-```
