@@ -32,6 +32,7 @@ class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, examples=["What is this document about?"])
     language: str = Field(default="English", examples=["English", "French", "Arabic"])
     answer_style: str = Field(default="Executive", examples=["Executive", "Detailed", "Study Notes"])
+    analysis_mode: str = Field(default="Custom", examples=["Executive Summary", "Methodology Audit"])
 
 
 class QueryResponse(BaseModel):
@@ -128,11 +129,13 @@ def query_documents(
         )
 
     try:
-        return engine.query(
-            question,
-            language=payload.language,
-            answer_style=payload.answer_style,
-        )
+        query_options = {
+            "language": payload.language,
+            "answer_style": payload.answer_style,
+        }
+        if payload.analysis_mode != "Custom":
+            query_options["analysis_mode"] = payload.analysis_mode
+        return engine.query(question, **query_options)
     except MissingAPIKeyError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except ValueError as exc:

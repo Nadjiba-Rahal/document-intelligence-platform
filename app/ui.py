@@ -10,7 +10,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings
-from app.rag_engine import DocumentRAGEngine, MissingAPIKeyError, RAGEngineError
+from app.rag_engine import ANALYSIS_MODES, DocumentRAGEngine, MissingAPIKeyError, RAGEngineError
 
 DATA_DIR = Path("./data")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -48,6 +48,7 @@ with st.sidebar:
         ["Executive", "Detailed", "Study Notes"],
         default="Executive",
     )
+    analysis_mode = st.selectbox("Analysis mode", list(ANALYSIS_MODES))
     show_metrics = st.toggle("Show retrieval metrics", value=True)
 
     st.divider()
@@ -114,11 +115,12 @@ if question:
 
     with st.chat_message("assistant"):
         try:
-            with st.spinner("Searching sources and asking Llama 3..."):
+            with st.spinner("Searching sources and analyzing the document..."):
                 result = get_engine().query(
                     question,
                     language=language,
                     answer_style=answer_style,
+                    analysis_mode=analysis_mode,
                 )
             st.markdown(result["answer"])
             sources = result["source_documents"]

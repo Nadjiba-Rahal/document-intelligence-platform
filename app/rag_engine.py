@@ -14,6 +14,15 @@ SUPPORTED_LANGUAGES = {
     "Arabic": "Arabic",
 }
 
+ANALYSIS_MODES = {
+    "Custom": "Answer the user's question directly.",
+    "Executive Summary": "Prioritize the document's purpose, strongest findings, implications, and bottom line.",
+    "Key Findings": "Extract the most important findings and support each one with evidence from the context.",
+    "Methodology Audit": "Examine the data, methods, evaluation setup, and whether the evidence supports the claims.",
+    "Risks and Limitations": "Identify explicit limitations, threats to validity, risks, and unanswered questions.",
+    "Study Guide": "Create structured study notes with definitions, concepts, questions, and concise answers.",
+}
+
 STRICT_SYSTEM_PROMPT = (
     "Answer the user query ONLY using the provided context. "
     "If the answer is not contained in the context, politely state that you do not know. "
@@ -111,7 +120,13 @@ class DocumentRAGEngine:
         self.vector_store.add_documents(chunks)
         return len(chunks)
 
-    def query(self, question: str, language: str = "English", answer_style: str = "Executive") -> dict[str, Any]:
+    def query(
+        self,
+        question: str,
+        language: str = "English",
+        answer_style: str = "Executive",
+        analysis_mode: str = "Custom",
+    ) -> dict[str, Any]:
         """Answer a question using the top three retrieved source chunks."""
 
         clean_question = question.strip()
@@ -119,6 +134,7 @@ class DocumentRAGEngine:
             raise ValueError("Question cannot be empty.")
         response_language = SUPPORTED_LANGUAGES.get(language, "English")
         response_style = answer_style if answer_style in {"Executive", "Detailed", "Study Notes"} else "Executive"
+        selected_mode = analysis_mode if analysis_mode in ANALYSIS_MODES else "Custom"
 
         from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -141,6 +157,8 @@ class DocumentRAGEngine:
                     f"User query: {clean_question}\n\n"
                     f"Answer language: {response_language}\n"
                     f"Answer style: {response_style}\n\n"
+                    f"Analysis mode: {selected_mode}\n"
+                    f"Analysis instruction: {ANALYSIS_MODES[selected_mode]}\n\n"
                     "Answer with clear reasoning in simple language. "
                     "For summary, problem, contribution, limitation, or hypothesis questions, prefer bullet points. "
                     "Do not summarize the references section unless the user explicitly asks for references. "
