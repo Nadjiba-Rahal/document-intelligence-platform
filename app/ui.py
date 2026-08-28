@@ -36,7 +36,12 @@ st.caption("Multilingual, evaluation-ready PDF intelligence with grounded answer
 
 with st.sidebar:
     st.header("Configuration")
-    api_key_input = st.text_input("Groq API Key", type="password", value=os.getenv("GROQ_API_KEY", ""))
+    api_key_input = st.text_input(
+        "Groq API Key",
+        type="password",
+        value="",
+        placeholder="Leave blank to use the configured key",
+    )
     if api_key_input and api_key_input != os.getenv("GROQ_API_KEY"):
         os.environ["GROQ_API_KEY"] = api_key_input
         reset_engine_cache()
