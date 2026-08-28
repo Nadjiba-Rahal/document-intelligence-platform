@@ -20,12 +20,15 @@ def _get_groq_api_key() -> str | None:
     try:
         import streamlit as st
         if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
-            return st.secrets["GROQ_API_KEY"]
+            key = str(st.secrets["GROQ_API_KEY"]).strip()
+            if key and key != "your_groq_api_key_here":
+                return key
     except Exception:
         pass
 
     # 2. Fallback to OS environment variables / .env
-    return os.getenv("GROQ_API_KEY")
+    key = os.getenv("GROQ_API_KEY", "").strip()
+    return key if key and key != "your_groq_api_key_here" else None
 
 
 def _get_int(name: str, default: int) -> int:
