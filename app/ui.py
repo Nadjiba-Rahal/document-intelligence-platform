@@ -10,6 +10,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings
+from app.ingestion import SUPPORTED_EXTENSIONS
 from app.rag_engine import ANALYSIS_MODES, DocumentRAGEngine, MissingAPIKeyError, RAGEngineError
 
 DATA_DIR = Path("./data")
@@ -58,7 +59,7 @@ with st.sidebar:
 
     st.divider()
     st.header("Upload PDF")
-    uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
+    uploaded_file = st.file_uploader("Choose a document", type=[extension.lstrip(".") for extension in SUPPORTED_EXTENSIONS])
     if st.button("Clear indexed documents", use_container_width=True):
         try:
             with st.spinner("Clearing local vector database..."):

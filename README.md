@@ -31,7 +31,7 @@
 
 ## <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" width="22" height="22" /> Overview
 
-This repository provides an enterprise-ready pipeline for document intelligence. It processes raw PDF documents, chunks and embeds text locally, performs hybrid vector retrieval via ChromaDB, and generates context-grounded answers using Llama-3 (Groq API).
+This repository provides an enterprise-ready pipeline for document intelligence. It processes PDF, DOCX, text, Markdown, HTML, and OCR-capable image documents, chunks and embeds text locally, fuses lexical and vector retrieval, and generates context-grounded answers using Groq.
 
 ### Core Capabilities
 
@@ -45,11 +45,11 @@ This repository provides an enterprise-ready pipeline for document intelligence.
   <tbody>
     <tr>
       <td><b>Hybrid Retrieval</b></td>
-      <td>Combines vector similarity search with page-diversity filtering to prevent Table of Contents and reference leakage.</td>
+      <td>Combines Chroma vector retrieval with lexical BM25-style ranking using reciprocal-rank fusion, then applies page-diversity and reference filtering.</td>
     </tr>
     <tr>
       <td><b>Fast LLM Inference</b></td>
-      <td>Powered by <code>Groq Llama-3-8B</code> for sub-second response times.</td>
+      <td>Powered by a configurable Groq model, currently <code>openai/gpt-oss-20b</code>.</td>
     </tr>
     <tr>
       <td><b>Multilingual Support</b></td>
@@ -57,7 +57,7 @@ This repository provides an enterprise-ready pipeline for document intelligence.
     </tr>
     <tr>
       <td><b>RAG Evaluation Suite</b></td>
-      <td>Includes a CLI tool to measure answer latency, groundedness, and context redundancy.</td>
+      <td>Provides Recall@K, Precision@K, MRR, Hit Rate, and nDCG helpers for retrieval regression datasets.</td>
     </tr>
     <tr>
       <td><b>Containerized Deployment</b></td>
@@ -69,6 +69,14 @@ This repository provides an enterprise-ready pipeline for document intelligence.
     </tr>
   </tbody>
 </table>
+
+### Production additions
+
+- Supported ingestion: `.pdf`, `.docx`, `.txt`, `.md`, `.html`, and OCR-capable image files.
+- Evidence IDs such as `[E1]` are assigned by the application and passed to the model; the model is instructed never to invent citations or follow document instructions.
+- `GET /ready` reports whether Groq configuration is present without exposing the API key.
+- Uploads are extension-validated and bounded by `MAX_UPLOAD_MB` (default: 50).
+- The API remains backward-compatible: `POST /upload` and `POST /query` retain their existing routes and defaults.
 
 ---
 

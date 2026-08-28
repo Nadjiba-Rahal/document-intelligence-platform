@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, get_rag_engine
+from app.evaluation import evaluate_retrieval
 from app.rag_engine import DocumentRAGEngine
 
 
@@ -39,6 +40,14 @@ def test_health_endpoint(client):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_readiness_endpoint_does_not_expose_api_key(client):
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert "groq_configured" in response.json()
+    assert "GROQ_API_KEY" not in response.text
 
 
 def test_query_endpoint_returns_answer_and_sources(client):
@@ -84,3 +93,32 @@ def test_engine_query_rejects_empty_question_without_external_services():
 
     with pytest.raises(ValueError, match="Question cannot be empty"):
         engine.query(" ")
+
+
+def test_retrieval_evaluation_metrics():
+    metrics = evaluate_retrieval({"source-a"}, ["source-b", "source-a"], k=2)
+
+    assert metrics["recall_at_k"] == 1.0
+    assert metrics["precision_at_k"] == 0.5
+    assert metrics["mrr"] == 0.5
+
+
+def test_reciprocal_rank_fusion_prefers_documents_seen_by_both_rankers():
+    from langchain_core.documents import Document
+
+    shared = Document(page_content="shared evidence")
+    vector_only = Document(page_content="vector evidence")
+    lexical_only = Document(page_content="lexical evidence")
+    merged = DocumentRAGEngine._rrf_merge([shared, vector_only], [lexical_only, shared])
+
+    assert merged[0].page_content == "shared evidence"
+
+
+def test_upload_rejects_unsupported_extension(client):
+    response = client.post(
+        "/upload",
+        files={"file": ("notes.exe", b"not supported", "application/octet-stream")},
+    )
+
+    assert response.status_code == 400
+    assert "Unsupported file type" in response.json()["detail"]

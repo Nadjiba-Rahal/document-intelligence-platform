@@ -51,6 +51,7 @@ class Settings:
     chunk_size: int = 500
     chunk_overlap: int = 50
     groq_model_name: str = "openai/gpt-oss-20b"
+    max_upload_mb: int = 50
 
     @property
     def chroma_path(self) -> Path:
@@ -71,4 +72,5 @@ def get_settings() -> Settings:
         chunk_size=_get_int("CHUNK_SIZE", 500),
         chunk_overlap=_get_int("CHUNK_OVERLAP", 50),
         groq_model_name=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-20b"),
+        max_upload_mb=_get_int("MAX_UPLOAD_MB", 50),
     )

@@ -8,6 +8,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from app.ingestion import SUPPORTED_EXTENSIONS
+from app.config import get_settings
 from app.rag_engine import DocumentRAGEngine, MissingAPIKeyError, RAGEngineError
 
 DATA_DIR = Path("./data")
@@ -51,8 +53,20 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/ready")
+def readiness() -> dict[str, bool | str]:
+    """Report whether required configuration is present without making an LLM call."""
+
+    settings = get_settings()
+    return {
+        "status": "ready" if settings.groq_api_key else "not_ready",
+        "groq_configured": bool(settings.groq_api_key),
+        "model": settings.groq_model_name,
+    }
+
+
 @app.post("/upload")
-async def upload_pdf(
+async def upload_document(
     request: Request,
     engine: DocumentRAGEngine = Depends(get_rag_engine),
 ) -> dict[str, str | int]:
@@ -72,16 +86,16 @@ async def upload_pdf(
         ) from exc
 
     file = form.get("file")
-    if not isinstance(file, UploadFile):
+    if not isinstance(file, UploadFile) and not hasattr(file, "filename"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing PDF file field named 'file'.",
         )
 
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
+    if not file.filename or Path(file.filename).suffix.lower() not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF uploads are supported.",
+            detail=f"Unsupported file type. Supported types: {', '.join(sorted(SUPPORTED_EXTENSIONS))}.",
         )
 
     safe_name = f"{uuid4().hex}_{Path(file.filename).name}"
@@ -94,8 +108,14 @@ async def upload_pdf(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded PDF is empty.",
             )
+        max_bytes = get_settings().max_upload_mb * 1024 * 1024
+        if len(content) > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File exceeds the {get_settings().max_upload_mb} MB upload limit.",
+            )
         destination.write_bytes(content)
-        chunks = engine.ingest_pdf(str(destination))
+        chunks = engine.ingest_file(str(destination))
     except MissingAPIKeyError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except HTTPException:
